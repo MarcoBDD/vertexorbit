@@ -1,7 +1,0 @@
-vertexorbit-server/node_modules/
-vertexorbit-server/gamedata.db
-vertexorbit-server/gamedata.db-shm
-vertexorbit-server/gamedata.db-wal
-.env
-*.log
-
