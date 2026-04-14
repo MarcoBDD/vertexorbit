@@ -16,8 +16,8 @@ git rm --cached FIX_AND_PUSH.bat 2>nul
 git rm --cached backup.py 2>nul
 git rm --cached rename.ps1 2>nul
 git rm --cached cleanup.ps1 2>nul
-git rm --cached GUIDA_DEPLOY_ONLINE.pdf 2>nul
-git rm --cached .gitignore 2>nul
+git rm --cached GIT_PUSH.bat 2>nul
+git rm --cached CLEANUP_REPO.bat 2>nul
 git rm --cached "]" 2>nul
 git rm --cached "vertexorbit-client/]" 2>nul
 git rm --cached "vertexorbit-server/]" 2>nul
