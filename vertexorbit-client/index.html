@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:8080; media-src 'self' data: file: blob:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VertexOrbit</title>
+  <link rel="stylesheet" href="css/style.css?v=2">
+  <style>
+    @keyframes levelupPop {
+      0%   { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+      15%  { transform: translate(-50%, -50%) scale(1.12); opacity: 1; }
+      25%  { transform: translate(-50%, -50%) scale(1.0);  opacity: 1; }
+      70%  { transform: translate(-50%, -50%) scale(1.0);  opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1.1);  opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="ui-layer" class="hidden">
+      <!-- HUD STATS -->
+      <div id="stats">
+
+        <!-- Ship + Map row -->
+        <div class="hud-row-inline">
+          <span class="hud-label-sm">✦ <span id="ship-val">PHOENIX</span></span>
+          <span class="hud-sep">|</span>
+          <span class="hud-label-sm" id="map-val">ARENA</span>
+          <span class="hud-label-sm" id="map-type-val" style="color:#64748b;">(PvPvE)</span>
+        </div>
+
+        <!-- HP -->
+        <div class="hud-bar-block">
+          <div class="hud-bar-label">
+            <span>HP</span>
+            <span class="hud-bar-nums"><span id="hp-val">0</span> / <span id="maxhp-val">0</span></span>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" id="bar-hp" style="width:100%;background:linear-gradient(90deg,#16a34a,#4ade80);"></div>
+          </div>
+        </div>
+
+        <!-- SHIELD -->
+        <div class="hud-bar-block">
+          <div class="hud-bar-label">
+            <span>SHIELD</span>
+            <span class="hud-bar-nums"><span id="shield-val">0</span> / <span id="maxshield-val">0</span></span>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" id="bar-shield" style="width:0%;background:linear-gradient(90deg,#0369a1,#38bdf8);"></div>
+          </div>
+        </div>
+
+        <!-- SPEED -->
+        <div class="hud-bar-block">
+          <div class="hud-bar-label">
+            <span>SPEED</span>
+            <span class="hud-bar-nums"><span id="speed-val">0</span></span>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" id="bar-speed" style="width:100%;background:linear-gradient(90deg,#0ea5e9,#38bdf8);"></div>
+          </div>
+        </div>
+
+        <!-- SPRINT -->
+        <div class="hud-bar-block">
+          <div class="hud-bar-label">
+            <span>SPRINT</span>
+            <span class="hud-bar-nums"><span id="sprint-val">0</span> / <span id="maxsprint-val">0</span></span>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" id="bar-sprint" style="width:100%;background:linear-gradient(90deg,#92400e,#facc15);"></div>
+          </div>
+        </div>
+
+        <!-- CARGO -->
+        <div class="hud-bar-block">
+          <div class="hud-bar-label">
+            <span>CARGO</span>
+            <span class="hud-bar-nums"><span id="cargo-val">0</span> / <span id="maxcargo-val">100</span></span>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" id="bar-cargo" style="width:0%;background:linear-gradient(90deg,#92400e,#f59e0b);"></div>
+          </div>
+        </div>
+
+        <!-- PILOT LEVEL / EXP mini-HUD -->
+        <div class="hud-bar-block" id="hud-pilot-block">
+          <div class="hud-bar-label">
+            <span>PILOT <span id="hud-pilot-level">1</span></span>
+            <span class="hud-bar-nums"><span id="hud-pilot-sp">0</span> SP</span>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" id="bar-pilot-exp" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div>
+          </div>
+        </div>
+
+        <!-- Credits -->
+        <div class="hud-row-inline hud-currency">
+          <span class="hud-cr">CR <span id="credits-val">0</span></span>
+        </div>
+
+        <span id="uridium-val" style="display:none;">0</span>
+
+      </div>
+
+      <!-- PARTY HUD -->
+      <div id="party-hud" class="hidden">
+        <div class="party-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span id="party-name-display" style="cursor:pointer;" title="Click to rename (Leader only)">PARTY <span id="party-leader-star">★</span></span>
+            <span id="btn-toggle-party" style="cursor:pointer; color:#94a3b8; font-size:16px; padding: 0 4px;" title="Expand/Collapse">−</span>
+        </div>
+        <div id="party-members-list"></div>
+      </div>
+
+      <!-- PARTY INVITES -->
+      <div id="party-invites"></div>
+
+      <!-- CONTEXT MENU -->
+      <div id="player-context-menu" class="hidden" style="position:absolute; background:rgba(8,15,28,0.45); border:1px dashed #334155; padding:8px; pointer-events:auto; z-index: 2000; backdrop-filter: blur(6px);">
+          <div id="context-player-name" style="color:#5eead4; font-weight:bold; font-size:12px; margin-bottom:8px; border-bottom:1px dashed #334155; padding-bottom:4px;"></div>
+          <button id="btn-invite-party" class="ui-button" style="width:100%; text-align:left; font-size:11px;">INVITE TO PARTY</button>
+      </div>
+
+      <!-- ACTION BAR -->
+      <div id="action-bar">
+        <!-- Laser Ammo -->
+        <div class="ab-group" id="ab-ammo">
+          <div class="ab-label">LASER AMMO [1-5]</div>
+          <div class="ab-slots">
+            <div class="ab-slot active-ammo" id="ab-x1"  data-ammo="x1"  title="x1 — Free, unlimited [1]">x1<span class="ab-count" id="cnt-x1">∞</span></div>
+            <div class="ab-slot" id="ab-x2"  data-ammo="x2"  title="x2 — Double damage (Credits) [2]">x2<span class="ab-count" id="cnt-x2">0</span></div>
+            <div class="ab-slot" id="ab-x3"  data-ammo="x3"  title="x3 — Triple damage (Uridium) [3]">x3<span class="ab-count" id="cnt-x3">0</span></div>
+            <div class="ab-slot" id="ab-x4"  data-ammo="x4"  title="x4 — Max damage (Uridium) [4]">x4<span class="ab-count" id="cnt-x4">0</span></div>
+            <div class="ab-slot sab-slot" id="ab-sab" data-ammo="sab" title="SAB — Steal enemy shields [5]">SAB<span class="ab-count" id="cnt-sab">0</span></div>
+          </div>
+        </div>
+        <div class="ab-sep"></div>
+        <!-- Missiles -->
+        <div class="ab-group" id="ab-missiles">
+          <div class="ab-label">MISSILES [Q-T]</div>
+          <div class="ab-slots">
+            <div class="ab-slot" id="ab-r310"    data-missile="r-310"    title="R-310 — Basic [Q]">R310<span class="ab-count" id="cnt-r310">0</span></div>
+            <div class="ab-slot active-ammo" id="ab-plt2026" data-missile="plt-2026" title="PLT-2026 — Medium [W]">PLT<span class="ab-count" id="cnt-plt2026">0</span></div>
+            <div class="ab-slot" id="ab-plt3030" data-missile="plt-3030" title="PLT-3030 — Heavy [E]">P30<span class="ab-count" id="cnt-plt3030">0</span></div>
+            <div class="ab-slot pld-slot" id="ab-pld8"    data-missile="pld-8"    title="PLD-8 — Slow [R]">PLD<span class="ab-count" id="cnt-pld8">0</span></div>
+            <div class="ab-slot agt-slot" id="ab-agt500"  data-missile="agt-500"  title="AGT-500 — Area [T]">AGT<span class="ab-count" id="cnt-agt500">0</span></div>
+          </div>
+        </div>
+        <div class="ab-sep"></div>
+        <!-- Mines & Specials -->
+        <div class="ab-group">
+          <div class="ab-label">SPECIALS [SPACE]</div>
+          <div class="ab-slots">
+            <div class="ab-slot mine-slot" id="ab-mine"   title="Normal Mine [CLICK to Select]">MINE<span class="ab-count" id="cnt-mine">0</span></div>
+            <div class="ab-slot mine-slot" id="ab-smines" title="Slow Mine [CLICK to Select]">SLOW<span class="ab-count" id="cnt-smines">0</span></div>
+            <div class="ab-slot bomb-slot" id="ab-sbomb"  title="Smart Bomb [CLICK to Select]">BOMB<span class="ab-count" id="cnt-sbomb">0</span></div>
+            <div class="ab-slot emp-slot"  id="ab-emp"    title="EMP-01 [CLICK to Select]">EMP<span class="ab-count" id="cnt-emp">0</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute;top:20px;right:20px;display:flex;gap:12px;pointer-events:auto;">
+        <button id="btn-quick-sell" class="ui-button" style="display:none;">SELL CARGO</button>
+        <button id="btn-leaderboard" class="ui-button">LEADERBOARD</button>
+        <button id="btn-pilot-skills" class="ui-button" title="Pilot Skills — spend your skill points">✦ PILOT</button>
+        <button id="btn-settings" class="ui-button" title="Settings">SETTINGS</button>
+        <button id="btn-base" class="ui-button" disabled title="Approach your base to access" style="opacity:0.4;cursor:not-allowed;">BASE</button>
+        <button id="btn-logout" class="ui-button">EXIT</button>
+      </div>
+
+      <!-- Logout confirmation -->
+      <div id="logout-dialog" class="hidden" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+        background:rgba(8,15,28,0.97);border:1px solid #ef4444;border-radius:10px;padding:28px 36px;
+        text-align:center;z-index:2000;pointer-events:auto;min-width:280px;box-shadow:0 0 30px rgba(239,68,68,0.3);">
+        <div style="font-size:15px;color:#e2e8f0;margin-bottom:6px;font-family:'Courier New',monospace;font-weight:bold;">LEAVE THE GAME?</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:20px;font-family:'Courier New',monospace;">Progress will be saved.</div>
+        <div style="display:flex;gap:12px;justify-content:center;">
+          <button id="btn-logout-confirm" class="ui-button" style="color:#fca5a5;">YES, EXIT</button>
+          <button id="btn-logout-cancel"  class="ui-button">CANCEL</button>
+        </div>
+      </div>
+      <!-- ═══ LEADERBOARD FULLSCREEN PAGE ═══ -->
+      <div id="leaderboard-panel" class="hidden" style="
+        position:fixed; inset:0; z-index:3000; pointer-events:auto;
+        background:rgba(4,9,18,0.97);
+        display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+        padding:40px 20px 20px; overflow-y:auto;">
+
+        <!-- Header -->
+        <div style="width:100%;max-width:900px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
+          <div style="font-family:'Courier New',monospace;font-size:22px;font-weight:bold;color:#5EEAD4;letter-spacing:4px;text-transform:uppercase;">
+            ◈ GALACTIC LEADERBOARD ◈
+          </div>
+          <button id="btn-close-leaderboard" style="
+            background:transparent; border:1px solid #334155; color:#94a3b8;
+            font-family:'Courier New',monospace; font-size:13px; padding:6px 16px;
+            cursor:pointer; letter-spacing:2px;
+            transition: border-color .2s, color .2s;"
+            onmouseover="this.style.borderColor='#5EEAD4';this.style.color='#5EEAD4'"
+            onmouseout="this.style.borderColor='#334155';this.style.color='#94a3b8'">
+            ✕ CLOSE
+          </button>
+        </div>
+
+        <!-- Table -->
+        <div style="width:100%;max-width:900px;">
+          <table id="leaderboard-table" style="
+            width:100%; border-collapse:collapse;
+            font-family:'Courier New',monospace; font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid #334155; color:#475569; text-transform:uppercase; letter-spacing:2px;">
+                <th style="padding:10px 14px; text-align:center; width:60px;">#</th>
+                <th style="padding:10px 14px; text-align:center; width:80px;">FACTION</th>
+                <th style="padding:10px 14px; text-align:left;">NAME</th>
+                <th style="padding:10px 14px; text-align:center; width:80px;">LEVEL</th>
+                <th style="padding:10px 14px; text-align:right; width:100px;">POINTS</th>
+                <th style="padding:10px 14px; text-align:right; width:110px;">PLAYER KILLS</th>
+                <th style="padding:10px 14px; text-align:right; width:110px;">ALIEN KILLS</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Footer note -->
+        <div style="margin-top:28px;font-family:'Courier New',monospace;font-size:11px;color:#1e293b;letter-spacing:2px;">
+          TOP 10 PILOTS BY SCORE
+        </div>
+
+        <!-- La tua posizione -->
+        <div id="leaderboard-my-rank" style="
+          margin-top:20px; width:100%; max-width:900px;
+          border-top:1px solid #1e293b; padding-top:18px;
+          font-family:'Courier New',monospace; text-align:center;">
+          <span style="color:#475569;font-size:12px;letter-spacing:2px;text-transform:uppercase;">YOUR GLOBAL POSITION IS:</span>
+          <span id="leaderboard-my-rank-value" style="
+            margin-left:12px; font-size:20px; font-weight:bold; color:#5EEAD4; letter-spacing:3px;">
+            —
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PILOT SKILLS PANEL
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="pilot-skills-panel" class="hidden" style="
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:520px; max-height:85vh; overflow-y:auto;
+      background:rgba(8,15,28,0.97); border:1px solid #334155;
+      border-radius:12px; padding:0; pointer-events:auto; z-index:3000;
+      box-shadow:0 0 40px rgba(124,58,237,0.25);
+      font-family:'Courier New',monospace;">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:16px 20px; border-bottom:1px solid #1e293b;
+                  background:rgba(124,58,237,0.12);">
+        <div>
+          <div style="font-size:16px;font-weight:bold;color:#a78bfa;letter-spacing:2px;">✦ PILOT SKILLS</div>
+          <div style="font-size:10px;color:#64748b;margin-top:2px;">Permanent buffs applied to any equipped ship</div>
+        </div>
+        <button id="btn-close-pilot-skills" style="
+          background:transparent;border:1px solid #334155;color:#94a3b8;
+          width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;
+          display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+      <!-- Pilot Level + EXP bar -->
+      <div style="padding:14px 20px; border-bottom:1px solid #1e293b; background:rgba(0,0,0,0.2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:#a78bfa;font-size:13px;font-weight:bold;">LEVEL <span id="ps-level">1</span></span>
+          <span style="color:#facc15;font-size:12px;">Skill Points disponibili: <b id="ps-skill-points">0</b></span>
+        </div>
+        <div style="background:#1e293b;border-radius:4px;height:10px;overflow:hidden;position:relative;">
+          <div id="ps-exp-bar-fill" style="height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:4px;transition:width 0.4s ease;"></div>
+        </div>
+        <div id="ps-exp-text" style="font-size:10px;color:#64748b;margin-top:4px;text-align:right;">0 / 1000 EXP</div>
+        <div style="font-size:10px;color:#475569;margin-top:6px;">
+          EXP earned only from alien kills • Max Level 100 • Max 25 points per skill
+        </div>
+      </div>
+      <!-- Skills list -->
+      <div id="ps-skills-container" style="padding:12px 16px; display:flex; flex-direction:column; gap:8px;"></div>
+      <!-- Footer: Reset -->
+      <div style="padding:14px 20px;border-top:1px solid #1e293b;display:flex;justify-content:flex-end;">
+        <button id="btn-reset-pilot-skills" style="
+          background:rgba(239,68,68,0.15); border:1px solid #ef4444;
+          color:#fca5a5; padding:7px 18px; border-radius:6px;
+          cursor:pointer; font-family:'Courier New',monospace; font-size:11px;
+          letter-spacing:1px;" title="Reset all points to zero">
+          🔄 RESET SKILLS
+        </button>
+      </div>
+    </div>
+
+    <!-- MENU — Login / Register -->
+    <div id="menu-screen" class="overlay-screen" style="pointer-events:auto;">
+      <h1>VERTEX ORBIT</h1>
+
+      <div id="auth-container">
+        <!-- Tab switcher -->
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login"  onclick="switchAuthTab('login')">LOGIN</button>
+          <button class="auth-tab"        id="tab-register" onclick="switchAuthTab('register')">REGISTER</button>
+        </div>
+
+        <!-- ── LOGIN ── -->
+        <div id="form-login" class="auth-form">
+          <div class="auth-field">
+            <label>Username</label>
+            <input type="text" id="login-username" placeholder="Your nickname" autocomplete="username">
+          </div>
+          <div class="auth-field">
+            <label>Password</label>
+            <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <div id="login-error" class="auth-error hidden"></div>
+          <button id="btn-start" class="ui-button big-btn" style="margin-top:8px;">ENTER GAME</button>
+        </div>
+
+        <!-- ── REGISTER ── -->
+        <div id="form-register" class="auth-form hidden">
+          <div class="auth-field">
+            <label>Username <span style="color:#64748b;font-size:10px;">(min 3 chars, no spaces)</span></label>
+            <input type="text" id="reg-username" placeholder="Choose a nickname" autocomplete="username">
+          </div>
+          <div class="auth-field">
+            <label>Password <span style="color:#64748b;font-size:10px;">(min 4 chars)</span></label>
+            <input type="password" id="reg-password" placeholder="Choose a password" autocomplete="new-password">
+          </div>
+          <div class="auth-field">
+            <label>Confirm Password</label>
+            <input type="password" id="reg-password2" placeholder="Repeat password" autocomplete="new-password">
+          </div>
+          <div class="auth-field">
+            <label>Faction</label>
+            <div class="faction-selector">
+              <button class="faction-btn active" data-faction="MMO" onclick="selectFaction(this,'MMO')">
+                <span class="faction-icon" style="color:#ef4444;">⬡</span>
+                <span>MMO</span>
+                <small>Mars</small>
+              </button>
+              <button class="faction-btn" data-faction="EIC" onclick="selectFaction(this,'EIC')">
+                <span class="faction-icon" style="color:#3b82f6;">⬡</span>
+                <span>EIC</span>
+                <small>Earth</small>
+              </button>
+              <button class="faction-btn" data-faction="VRU" onclick="selectFaction(this,'VRU')">
+                <span class="faction-icon" style="color:#22c55e;">⬡</span>
+                <span>VRU</span>
+                <small>Venus</small>
+              </button>
+            </div>
+            <input type="hidden" id="reg-faction" value="MMO">
+          </div>
+          <div id="reg-error"   class="auth-error hidden"></div>
+          <div id="reg-success" class="auth-success hidden"></div>
+          <button id="btn-register" class="ui-button big-btn" style="margin-top:8px;">CREATE ACCOUNT</button>
+        </div>
+
+      </div>
+
+      <!-- RESPAWN screen -->
+      <div id="respawn-container" class="hidden">
+        <div style="color:#94a3b8;font-size:13px;margin-bottom:16px;font-family:'Courier New',monospace;">
+          Your ship has been destroyed.
+        </div>
+        <button id="btn-respawn" class="ui-button big-btn">RESPAWN AT BASE</button>
+      </div>
+
+    </div>
+
+    <!-- BASE — Hangar, Cargo, Shop -->
+    <div id="hangar-screen" class="overlay-screen hidden">
+      <div class="hangar-header">
+        <h2 id="hangar-title">HANGAR & EQUIPMENT</h2>
+        <div class="credits-display"><span id="hangar-credits">0</span> CR</div>
+        <div style="display:flex;gap:8px;">
+          <button id="base-tab-hangar" class="ui-button active-config" onclick="uiManager.switchBaseTab('hangar')">HANGAR</button>
+          <button id="base-tab-cargo"  class="ui-button" onclick="uiManager.switchBaseTab('cargo')">CARGO</button>
+          <button id="base-tab-shop"   class="ui-button" onclick="uiManager.switchBaseTab('shop')">SHOP</button>
+          <button id="btn-close-hangar" class="ui-button">SPACE</button>
+        </div>
+      </div>
+      <!-- HANGAR PANEL -->
+      <div id="base-panel-hangar" class="hangar-layout">
+        <div class="hangar-center">
+          <div class="config-tabs">
+            <button id="btn-config-1" class="ui-button active-config">CONFIG 1</button>
+            <button id="btn-config-2" class="ui-button">CONFIG 2</button>
+          </div>
+          <div class="ship-display-area">
+            <div class="ship-visual" id="ship-visual">SHIP</div>
+            <div class="equip-grids">
+              <div class="equip-section">
+                <h4>LASERS</h4>
+                <div id="grid-ship-lasers" class="slot-grid"></div>
+              </div>
+              <div class="equip-section">
+                <h4>SHIELDS</h4>
+                <div id="grid-ship-shields" class="slot-grid"></div>
+              </div>
+              <div class="equip-section">
+                <h4>GENERATORS</h4>
+                <div id="grid-ship-generators" class="slot-grid"></div>
+              </div>
+              <div class="equip-section">
+                <h4>CPU</h4>
+                <div id="grid-ship-cpus" class="slot-grid"></div>
+              </div>
+              <div class="equip-section">
+                <h4>MISSILES</h4>
+                <div id="grid-ship-missiles" class="slot-grid"></div>
+              </div>
+              <div class="equip-section pet-section">
+                <h4>P.E.T.</h4>
+                <div id="grid-ship-pets" class="slot-grid"></div>
+              </div>
+            </div>
+          </div>
+          <div class="drones-area">
+            <h4>EQUIPPED DRONES</h4>
+            <div id="drones-container" class="drones-flex"></div>
+          </div>
+        </div>
+        <div class="hangar-inventory">
+          <h3>INVENTORY</h3>
+          <p class="inv-hint">Click to equip · Drag to slot · Click slot to remove</p>
+          <div id="inventory-list" class="inventory-grid"></div>
+        </div>
+      </div>
+
+      <!-- CARGO PANEL -->
+      <div id="base-panel-cargo" class="hangar-layout hidden" style="flex-direction:column;padding:24px 32px;gap:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <h3 style="margin:0;color:#5eead4;">CARGO CONTENT</h3>
+            <p style="margin:4px 0 0;color:#64748b;font-size:12px;">Loot collected during missions. Sell everything to earn credits.</p>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px;color:#64748b;">Space used</div>
+            <div style="font-size:18px;color:#f59e0b;font-family:'Courier New',monospace;"><span id="cargo-used">0</span> / <span id="cargo-max">100</span></div>
+            <div style="width:200px;height:8px;background:#1e293b;border-radius:4px;margin-top:4px;">
+              <div id="cargo-bar" style="height:100%;background:linear-gradient(90deg,#f59e0b,#fde68a);border-radius:4px;width:0%;transition:width 0.3s;"></div>
+            </div>
+          </div>
+        </div>
+        <div id="cargo-items-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;overflow-y:auto;max-height:55vh;width:100%;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #1e293b;padding-top:16px;">
+          <div>
+            <div style="font-size:12px;color:#64748b;">Total estimated value</div>
+            <div id="cargo-total-value" style="font-size:22px;color:#facc15;font-family:'Courier New',monospace;font-weight:bold;">0 CR</div>
+          </div>
+          <button id="btn-sell-all-cargo" class="ui-button" style="color:#f59e0b;font-size:14px;padding:12px 28px;">
+            SELL ALL
+          </button>
+        </div>
+      </div>
+
+      <!-- SHOP PANEL -->
+      <div id="base-panel-shop" class="shop-layout hidden">
+        <div class="shop-categories">
+          <h3>CATEGORIES</h3>
+          <div class="shop-category-list">
+            <button class="ui-button shop-cat-btn active-config" data-cat="ships">SHIPS</button>
+            <button class="ui-button shop-cat-btn" data-cat="lasers">LASERS</button>
+            <button class="ui-button shop-cat-btn" data-cat="laserAmmo">AMMO</button>
+            <button class="ui-button shop-cat-btn" data-cat="shields">SHIELDS</button>
+            <button class="ui-button shop-cat-btn" data-cat="generators">GENERATORS</button>
+            <button class="ui-button shop-cat-btn" data-cat="cpus">CPU</button>
+            <button class="ui-button shop-cat-btn" data-cat="missiles">MISSILES</button>
+            <button class="ui-button shop-cat-btn" data-cat="mines">MINES</button>
+            <button class="ui-button shop-cat-btn" data-cat="emp">EMP</button>
+            <button class="ui-button shop-cat-btn" data-cat="drones">DRONES</button>
+            <button class="ui-button shop-cat-btn" data-cat="pets">P.E.T.</button>
+          </div>
+        </div>
+        <div class="shop-catalog">
+          <div id="shop-items-list" class="shop-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="shop-screen" class="overlay-screen hidden" style="display:none !important;">
+      <span id="shop-credits" style="display:none;">0</span>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="overlay-screen hidden" style="z-index: 3000;">
+      <div style="background:transparent;border:1px dashed #334155;padding:24px;width:600px;max-height:85vh;overflow-y:auto;pointer-events:auto;">
+        <h2 style="margin-bottom:20px;text-align:center;color:#5EEAD4;">SETTINGS</h2>
+        
+        <div style="margin-bottom:24px;">
+          <h3 style="color:#5eead4;border-bottom:1px dashed #334155;padding-bottom:5px;">AUDIO</h3>
+          <div style="display:flex;align-items:center;gap:12px;background:transparent;padding:12px 0;border:none;">
+            <label style="font-size:12px;color:#94a3b8;font-weight:bold;width:120px;">Global Volume</label>
+            <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.5" style="flex:1;cursor:pointer;">
+            <span id="volume-value" style="font-size:13px;color:#facc15;font-weight:bold;width:40px;text-align:right;">50%</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+          <h3 style="color:#5eead4;border-bottom:1px dashed #334155;padding-bottom:5px;">CONTROLS (Click to change)</h3>
+          <div id="bindings-list" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+        </div>
+
+        <div style="display:flex;gap:12px;justify-content:space-between;margin-top:24px;">
+          <button id="btn-settings-reset" class="ui-button" style="color:#fca5a5;">RESET DEFAULT</button>
+          <button id="btn-settings-close" class="ui-button big-btn" style="flex:1;font-size:16px;padding:10px;">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/core/Items.js"></script>
+  <script src="js/core/InputManager.js"></script>
+  <script src="js/core/Camera.js"></script>
+  <script src="js/core/Collision.js"></script>
+  <script src="js/entities/Entity.js"></script>
+  <script src="js/entities/Player.js"></script>
+  <script src="js/entities/Player_patches.js"></script>
+  <script src="js/entities/Enemy.js"></script>
+  <script src="js/entities/Projectile.js"></script>
+  <script src="js/entities/Resource.js"></script>
+  <script src="js/entities/DamageText.js"></script>
+  <script src="js/entities/Portal.js"></script>
+  <script src="js/entities/Turret.js"></script>
+  <script src="js/entities/BaseStation.js"></script>
+  <script src="js/entities/OtherPlayer.js"></script>
+  <script src="js/entities/PET.js"></script>
+  <script src="js/entities/Mine.js"></script>
+  <script src="js/entities/CargoBox.js"></script>
+  <script src="js/core/WebSocketClient.js"></script>
+  <script src="js/managers/EntityManager.js"></script>
+  <script src="js/managers/MapManager.js"></script>
+  <script src="js/managers/SkylabManager.js"></script>
+  <script src="js/managers/AssemblyManager.js"></script>
+  <script src="js/managers/UIManager.js?v=2"></script>
+  <script src="js/game.js?v=2"></script>
+</body>
+</html>

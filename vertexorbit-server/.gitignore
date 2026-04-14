@@ -1,0 +1,6 @@
+node_modules/
+gamedata.db
+gamedata.db-shm
+gamedata.db-wal
+.env
+npm-debug.log*

@@ -1,0 +1,12 @@
+{
+  "name": "darkorbit-server",
+  "version": "1.0.0",
+  "description": "DarkOrbit MMO - Game Server",
+  "main": "server.js",
+  "engines": { "node": ">=18.0.0" },
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "ws": "^8.20.0"
+  }
+}

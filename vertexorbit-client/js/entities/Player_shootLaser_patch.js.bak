@@ -1,0 +1,43 @@
+  // LASER con sistema munizioni — consuma 1 unita PER LASER per sparo
+  shootLaser(target) {
+      const ammoType = this.ammo ? this.ammo.laserAmmo : 'x1';
+      const ammoDef  = ITEMS.laserAmmo ? ITEMS.laserAmmo[ammoType] : null;
+      // Conta laser totali (nave + droni + pet) — consuma 1 munizione per laser per sparo
+      const laserCount = (() => {
+          let c = 0;
+          (this.equipped.lasers    || []).forEach(l => { if (l && ITEMS.lasers?.[l]) c++; });
+          (this.equipped.droneItems|| []).forEach(arr => (arr||[]).forEach(i => { if (i && ITEMS.lasers?.[i]) c++; }));
+          (this.equipped.petItems  || []).forEach(i  => { if (i && ITEMS.lasers?.[i]) c++; });
+          return Math.max(1, c);
+      })();
+      if (ammoType !== 'x1' && ammoDef && this.ammo && this.ammo.counts) {
+          const available = this.ammo.counts[ammoType] || 0;
+          if (available < laserCount) {
+              this.ammo.laserAmmo = 'x1'; // non abbastanza munizioni per tutti i laser -> fallback x1
+          } else {
+              this.ammo.counts[ammoType] -= laserCount; // consuma 1 per ogni laser attivo
+          }
+      }
+      const baseDamage = this.getTotalDamage();
+      const multiplier = ammoDef ? (ammoDef.multiplier || 1) : 1;
+      const isSab      = ammoType === 'sab';
+      const finalDamage = isSab ? 0 : Math.floor(baseDamage * multiplier);
+
+      let laserColor = ammoDef ? (ammoDef.color || '#5EEAD4') : '#5EEAD4';
+      if (!isSab) {
+          let hasLf4 = false, hasLf3 = false;
+          const ck = l => { if (l === 'lf4') hasLf4 = true; else if (l === 'lf3') hasLf3 = true; };
+          this.equipped.lasers.forEach(ck);
+          this.equipped.droneItems.forEach(a => a.forEach(ck));
+          if (hasLf4 && !hasLf3)       laserColor = '#ff0000';
+          else if (hasLf3 && !hasLf4)  laserColor = '#0044ff';
+          else if (hasLf4 || hasLf3)   laserColor = '#d946ef';
+          if (ammoType !== 'x1' && ammoDef) laserColor = ammoDef.color;
+      }
+
+      if (typeof wsClient !== 'undefined' && typeof wsClient.sendShoot === 'function') {
+          wsClient.sendShoot(this.angle, laserColor, finalDamage, this.x, this.y, 2,
+              target ? target.id : null,
+              { ammoType, sabPct: isSab ? (ammoDef.stealPct || 0.08) : 0 });
+      }
+  }
